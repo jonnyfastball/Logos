@@ -21,14 +21,20 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
   const remoteVideoRef = useRef(null);
   const roomRef = useRef(null);
   const recognitionRef = useRef(null);
+  const onTranscriptRef = useRef(onTranscript);
 
   const speechSupported =
     typeof window !== "undefined" &&
     (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+  // Keep ref in sync so the effect doesn't restart on every parent re-render
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  }, [onTranscript]);
+
   // Speech recognition lifecycle
   useEffect(() => {
-    if (!connected || !micEnabled || !onTranscript || !speechSupported) {
+    if (!connected || !micEnabled || !onTranscriptRef.current || !speechSupported) {
       // Stop recognition when disconnected, muted, or unsupported
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
@@ -49,7 +55,7 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const text = event.results[i][0].transcript.trim();
-          if (text) onTranscript(text);
+          if (text && onTranscriptRef.current) onTranscriptRef.current(text);
         }
       }
     };
@@ -84,7 +90,7 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       recognitionRef.current = null;
       setTranscribing(false);
     };
-  }, [connected, micEnabled, onTranscript, speechSupported]);
+  }, [connected, micEnabled, speechSupported]);
 
   // Connect to LiveKit room
   useEffect(() => {
