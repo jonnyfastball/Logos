@@ -3,8 +3,6 @@ import {
   Room,
   RoomEvent,
   Track,
-  createLocalVideoTrack,
-  createLocalAudioTrack,
 } from "livekit-client";
 
 export default function VideoChat({ debateId, userId, onTranscript }) {
@@ -32,9 +30,8 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
-  // Speech recognition lifecycle — auto-starts once connected.
-  // Mic permission is already granted by enableCameraAndMicrophone() above,
-  // so the Speech API can start without an additional permission prompt.
+  // Speech recognition — auto-starts once connected and video elements are mounted.
+  // Mic permission is granted by the upfront getUserMedia call in the connect effect.
   useEffect(() => {
     if (!connected || !onTranscriptRef.current || !speechSupported || connecting) {
       if (recognitionRef.current) {
@@ -58,18 +55,12 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const text = event.results[i][0].transcript.trim();
-          console.log("[STT] Transcript:", text);
           if (text && onTranscriptRef.current) onTranscriptRef.current(text);
         }
       }
     };
 
-    recognition.onstart = () => {
-      console.log("[STT] Recognition started");
-    };
-
     recognition.onerror = (event) => {
-      console.error("[STT] Error:", event.error);
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         fatal = true;
         recognition.onend = null;
@@ -91,9 +82,8 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       recognition.start();
       recognitionRef.current = recognition;
       setTranscribing(true);
-      console.log("[STT] Auto-started");
     } catch (e) {
-      console.error("[STT] Failed to start:", e);
+      // Speech recognition unavailable
     }
 
     return () => {
@@ -172,34 +162,18 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           }
         });
 
-        // Log available devices for debugging
-        try {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const audioInputs = devices.filter((d) => d.kind === "audioinput");
-          const videoInputs = devices.filter((d) => d.kind === "videoinput");
-          console.log("[Devices] Audio inputs:", audioInputs.length, audioInputs.map((d) => d.label || d.deviceId));
-          console.log("[Devices] Video inputs:", videoInputs.length, videoInputs.map((d) => d.label || d.deviceId));
-        } catch (e) {
-          console.warn("[Devices] enumeration failed:", e.message);
-        }
-
         // Request camera + mic permission upfront with a single getUserMedia
-        // call. This triggers Chrome's combined "Camera and Microphone" prompt
-        // before LiveKit tries to use them. We release the streams immediately —
-        // LiveKit will re-acquire them. Even if a device isn't physically
-        // available, the PERMISSION is granted for the Speech API to use.
+        // call so Chrome shows one combined prompt. Release streams immediately;
+        // LiveKit will re-acquire them. Falls back to video-only if no mic.
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
           stream.getTracks().forEach((t) => t.stop());
-          console.log("[Permissions] Camera + mic permission granted");
         } catch (permErr) {
-          console.warn("[Permissions] Combined request failed:", permErr.name, permErr.message);
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             stream.getTracks().forEach((t) => t.stop());
-            console.log("[Permissions] Video-only permission granted");
           } catch (e) {
-            console.warn("[Permissions] Video-only also failed:", e.message);
+            // continue anyway
           }
         }
 
@@ -220,13 +194,11 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
         try {
           await newRoom.localParticipant.setCameraEnabled(true);
         } catch (camErr) {
-          console.warn("Camera not available:", camErr.message);
           setCamEnabled(false);
         }
         try {
           await newRoom.localParticipant.setMicrophoneEnabled(true);
         } catch (micErr) {
-          console.warn("Microphone not available:", micErr.message);
           setMicEnabled(false);
         }
 

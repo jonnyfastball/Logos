@@ -1,5 +1,6 @@
 import "~/styles/style.scss";
 import React, { useState, useEffect } from "react";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import UserContext from "lib/UserContext";
 import { supabase } from "lib/Store";
@@ -49,6 +50,9 @@ export default function LogosApp({ Component, pageProps }) {
 
   return (
     <UserContext.Provider value={{ userLoaded, user, signOut }}>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      </Head>
       <Component {...pageProps} />
     </UserContext.Provider>
   );

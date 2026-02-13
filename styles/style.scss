@@ -549,8 +549,19 @@ body {
 
   .debate-video-col {
     width: 100%;
-    height: 40vh;
+    height: 50vh;
     flex: none;
+    flex-direction: column;
+  }
+
+  .video-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .video-panel + .video-panel {
+    border-left: none;
+    border-top: 2px solid var(--border-default);
   }
 
   .debate-chat-col {
