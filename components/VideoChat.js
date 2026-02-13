@@ -33,10 +33,10 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
   }, [onTranscript]);
 
   // Speech recognition lifecycle — auto-starts once connected.
-  // Explicitly requests mic permission via getUserMedia first (which Chrome
-  // will always prompt for on HTTPS), then starts the Speech API.
+  // Mic permission is already granted by enableCameraAndMicrophone() above,
+  // so the Speech API can start without an additional permission prompt.
   useEffect(() => {
-    if (!connected || !onTranscriptRef.current || !speechSupported) {
+    if (!connected || !onTranscriptRef.current || !speechSupported || connecting) {
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
         recognitionRef.current.abort();
@@ -46,89 +46,63 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       return;
     }
 
-    let cancelled = false;
-    let recognition = null;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
 
-    async function startRecognition() {
-      // Request mic permission explicitly — this triggers Chrome's prompt
-      try {
-        console.log("[STT] Requesting mic permission via getUserMedia...");
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Release the stream immediately — we just needed the permission grant
-        stream.getTracks().forEach((t) => t.stop());
-        console.log("[STT] Mic permission granted");
-      } catch (err) {
-        console.warn("[STT] Mic permission denied or unavailable:", err.message);
-        return;
+    let fatal = false;
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0].transcript.trim();
+          console.log("[STT] Transcript:", text);
+          if (text && onTranscriptRef.current) onTranscriptRef.current(text);
+        }
       }
+    };
 
-      if (cancelled) return;
+    recognition.onstart = () => {
+      console.log("[STT] Recognition started");
+    };
 
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
+    recognition.onerror = (event) => {
+      console.error("[STT] Error:", event.error);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        fatal = true;
+        recognition.onend = null;
+        recognitionRef.current = null;
+        setTranscribing(false);
+      }
+    };
 
-      let fatal = false;
-
-      recognition.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            const text = event.results[i][0].transcript.trim();
-            console.log("[STT] Transcript:", text);
-            if (text && onTranscriptRef.current) onTranscriptRef.current(text);
-          }
-        }
-      };
-
-      recognition.onstart = () => {
-        console.log("[STT] Recognition started");
-      };
-
-      recognition.onerror = (event) => {
-        console.error("[STT] Error:", event.error);
-        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          fatal = true;
-          recognition.onend = null;
-          recognitionRef.current = null;
-          setTranscribing(false);
-        }
-      };
-
-      recognition.onend = () => {
-        if (fatal || cancelled) return;
-        try {
-          recognition.start();
-        } catch (e) {
-          // ignore
-        }
-      };
-
-      if (cancelled) return;
-
+    recognition.onend = () => {
+      if (fatal) return;
       try {
         recognition.start();
-        recognitionRef.current = recognition;
-        setTranscribing(true);
-        console.log("[STT] Auto-started after mic permission grant");
       } catch (e) {
-        console.error("[STT] Failed to start:", e);
+        // ignore
       }
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setTranscribing(true);
+      console.log("[STT] Auto-started");
+    } catch (e) {
+      console.error("[STT] Failed to start:", e);
     }
 
-    startRecognition();
-
     return () => {
-      cancelled = true;
-      if (recognition) {
-        recognition.onend = null;
-        recognition.abort();
-      }
+      recognition.onend = null;
+      recognition.abort();
       recognitionRef.current = null;
       setTranscribing(false);
     };
-  }, [connected, speechSupported]);
+  }, [connected, connecting, speechSupported]);
 
   // Connect to LiveKit room
   useEffect(() => {
@@ -211,18 +185,24 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           return;
         }
 
-        // Enable camera and mic separately so one failure doesn't block the other
+        // Request camera + mic together so Chrome shows a single combined
+        // permission prompt. Fall back to individual requests if both fail.
         try {
-          await newRoom.localParticipant.setCameraEnabled(true);
-        } catch (camErr) {
-          console.warn("Camera not available:", camErr.message);
-          setCamEnabled(false);
-        }
-        try {
-          await newRoom.localParticipant.setMicrophoneEnabled(true);
-        } catch (micErr) {
-          console.warn("Microphone not available:", micErr.message);
-          setMicEnabled(false);
+          await newRoom.localParticipant.enableCameraAndMicrophone();
+        } catch (err) {
+          console.warn("Combined camera+mic failed, trying individually:", err.message);
+          try {
+            await newRoom.localParticipant.setCameraEnabled(true);
+          } catch (camErr) {
+            console.warn("Camera not available:", camErr.message);
+            setCamEnabled(false);
+          }
+          try {
+            await newRoom.localParticipant.setMicrophoneEnabled(true);
+          } catch (micErr) {
+            console.warn("Microphone not available:", micErr.message);
+            setMicEnabled(false);
+          }
         }
 
         // Try to attach local video now (may succeed if ref is ready)
