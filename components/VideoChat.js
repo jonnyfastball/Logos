@@ -32,83 +32,103 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
-  // Clean up speech recognition when disconnecting
+  // Speech recognition lifecycle — auto-starts once connected.
+  // Explicitly requests mic permission via getUserMedia first (which Chrome
+  // will always prompt for on HTTPS), then starts the Speech API.
   useEffect(() => {
-    if (!connected && recognitionRef.current) {
-      console.log("[STT] Disconnected — stopping recognition");
-      recognitionRef.current.onend = null;
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
-      setTranscribing(false);
-    }
-  }, [connected]);
-
-  // Start transcription — must be called from a user gesture (click) so
-  // Chrome will show the mic permission prompt instead of auto-denying.
-  const startTranscription = useCallback(() => {
-    if (recognitionRef.current || !speechSupported) return;
-
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    console.log("[STT] Starting from user gesture");
-
-    let fatal = false;
-
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          const text = event.results[i][0].transcript.trim();
-          console.log("[STT] Transcript:", text);
-          if (text && onTranscriptRef.current) onTranscriptRef.current(text);
-        }
-      }
-    };
-
-    recognition.onstart = () => {
-      console.log("[STT] Recognition started successfully");
-    };
-
-    recognition.onerror = (event) => {
-      console.error("[STT] Error:", event.error);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        fatal = true;
-        recognition.onend = null;
+    if (!connected || !onTranscriptRef.current || !speechSupported) {
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
         recognitionRef.current = null;
         setTranscribing(false);
       }
-    };
+      return;
+    }
 
-    recognition.onend = () => {
-      if (fatal) return;
-      console.log("[STT] Auto-restarting...");
+    let cancelled = false;
+    let recognition = null;
+
+    async function startRecognition() {
+      // Request mic permission explicitly — this triggers Chrome's prompt
+      try {
+        console.log("[STT] Requesting mic permission via getUserMedia...");
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Release the stream immediately — we just needed the permission grant
+        stream.getTracks().forEach((t) => t.stop());
+        console.log("[STT] Mic permission granted");
+      } catch (err) {
+        console.warn("[STT] Mic permission denied or unavailable:", err.message);
+        return;
+      }
+
+      if (cancelled) return;
+
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      let fatal = false;
+
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            const text = event.results[i][0].transcript.trim();
+            console.log("[STT] Transcript:", text);
+            if (text && onTranscriptRef.current) onTranscriptRef.current(text);
+          }
+        }
+      };
+
+      recognition.onstart = () => {
+        console.log("[STT] Recognition started");
+      };
+
+      recognition.onerror = (event) => {
+        console.error("[STT] Error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          fatal = true;
+          recognition.onend = null;
+          recognitionRef.current = null;
+          setTranscribing(false);
+        }
+      };
+
+      recognition.onend = () => {
+        if (fatal || cancelled) return;
+        try {
+          recognition.start();
+        } catch (e) {
+          // ignore
+        }
+      };
+
+      if (cancelled) return;
+
       try {
         recognition.start();
+        recognitionRef.current = recognition;
+        setTranscribing(true);
+        console.log("[STT] Auto-started after mic permission grant");
       } catch (e) {
-        console.warn("[STT] Auto-restart failed:", e.message);
+        console.error("[STT] Failed to start:", e);
       }
-    };
-
-    try {
-      recognition.start();
-      recognitionRef.current = recognition;
-      setTranscribing(true);
-    } catch (e) {
-      console.error("[STT] Failed to start:", e);
     }
-  }, [speechSupported]);
 
-  const stopTranscription = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.onend = null;
-      recognitionRef.current.abort();
+    startRecognition();
+
+    return () => {
+      cancelled = true;
+      if (recognition) {
+        recognition.onend = null;
+        recognition.abort();
+      }
       recognitionRef.current = null;
       setTranscribing(false);
-      console.log("[STT] Stopped by user");
-    }
-  }, []);
+    };
+  }, [connected, speechSupported]);
 
   // Connect to LiveKit room
   useEffect(() => {
@@ -335,16 +355,12 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
         >
           {camEnabled ? "Cam Off" : "Cam On"}
         </button>
-        {onTranscript && speechSupported && (
-          <button
-            onClick={transcribing ? stopTranscription : startTranscription}
-            className={`btn btn-sm ${transcribing ? 'btn-success' : 'btn-secondary'}`}
-          >
-            {transcribing ? "Stop Transcribing" : "Start Transcribing"}
-          </button>
-        )}
-        {onTranscript && !speechSupported && (
-          <span className="badge badge-yellow" style={{ marginLeft: 4 }}>No transcription</span>
+        {onTranscript && (
+          transcribing ? (
+            <span className="badge badge-green" style={{ marginLeft: 4 }}>Transcribing</span>
+          ) : !speechSupported ? (
+            <span className="badge badge-yellow" style={{ marginLeft: 4 }}>No transcription</span>
+          ) : null
         )}
       </div>
     </>
