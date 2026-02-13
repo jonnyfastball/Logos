@@ -75,19 +75,25 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       console.log("[STT] Recognition started successfully");
     };
 
+    let fatal = false;
+
+    recognition.onerror = (event) => {
+      console.error("[STT] Error:", event.error, event.message);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        fatal = true;
+        recognition.onend = null;
+        setTranscribing(false);
+        console.warn("[STT] Fatal error — mic permission denied, stopping");
+      }
+    };
+
     recognition.onend = () => {
+      if (fatal) return;
       console.log("[STT] Recognition ended, auto-restarting...");
       try {
         recognition.start();
       } catch (e) {
         console.warn("[STT] Auto-restart failed:", e.message);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      console.error("[STT] Error:", event.error, event.message);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        setTranscribing(false);
       }
     };
 
