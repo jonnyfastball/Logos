@@ -12,7 +12,7 @@ export default function Lobby() {
   const [inviteLink, setInviteLink] = useState(null);
   const [error, setError] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState("random");
-  const [mode, setMode] = useState("text");
+  const [mode, setMode] = useState("video");
   const [myRating, setMyRating] = useState(null);
   const [showAiFallback, setShowAiFallback] = useState(false);
   const waitingDebateIdRef = useRef(null);
@@ -210,7 +210,7 @@ export default function Lobby() {
     <div className="main flex flex-col h-screen w-screen page-bg">
       {/* Header */}
       <header className="header-bar">
-        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0 }}>LOGOS</h1>
+        <h1 onClick={() => router.push('/lobby')} style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0, cursor: 'pointer' }}>LOGOS</h1>
         <div className="flex items-center" style={{ gap: 12 }}>
           <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{user.email}</span>
           <button onClick={signOut} className="btn btn-ghost btn-sm">

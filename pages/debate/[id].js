@@ -516,6 +516,7 @@ export default function DebateRoom() {
     <div className="main flex flex-col h-screen w-screen page-bg">
       {/* Header */}
       <div className="header-bar" style={{ alignItems: 'flex-start', padding: '14px 20px' }}>
+        <span onClick={() => router.push('/lobby')} style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.3px', cursor: 'pointer', marginRight: 16, lineHeight: '1.8' }}>LOGOS</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-tertiary)' }}>
