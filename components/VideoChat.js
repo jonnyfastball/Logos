@@ -167,8 +167,19 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           return;
         }
 
-        // Enable camera and mic
-        await newRoom.localParticipant.enableCameraAndMicrophone();
+        // Enable camera and mic separately so one failure doesn't block the other
+        try {
+          await newRoom.localParticipant.setCameraEnabled(true);
+        } catch (camErr) {
+          console.warn("Camera not available:", camErr.message);
+          setCamEnabled(false);
+        }
+        try {
+          await newRoom.localParticipant.setMicrophoneEnabled(true);
+        } catch (micErr) {
+          console.warn("Microphone not available:", micErr.message);
+          setMicEnabled(false);
+        }
 
         // Try to attach local video now (may succeed if ref is ready)
         const localVideoTrack = newRoom.localParticipant.getTrackPublication(
