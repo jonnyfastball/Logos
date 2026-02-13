@@ -172,6 +172,37 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           }
         });
 
+        // Log available devices for debugging
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const audioInputs = devices.filter((d) => d.kind === "audioinput");
+          const videoInputs = devices.filter((d) => d.kind === "videoinput");
+          console.log("[Devices] Audio inputs:", audioInputs.length, audioInputs.map((d) => d.label || d.deviceId));
+          console.log("[Devices] Video inputs:", videoInputs.length, videoInputs.map((d) => d.label || d.deviceId));
+        } catch (e) {
+          console.warn("[Devices] enumeration failed:", e.message);
+        }
+
+        // Request camera + mic permission upfront with a single getUserMedia
+        // call. This triggers Chrome's combined "Camera and Microphone" prompt
+        // before LiveKit tries to use them. We release the streams immediately —
+        // LiveKit will re-acquire them. Even if a device isn't physically
+        // available, the PERMISSION is granted for the Speech API to use.
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stream.getTracks().forEach((t) => t.stop());
+          console.log("[Permissions] Camera + mic permission granted");
+        } catch (permErr) {
+          console.warn("[Permissions] Combined request failed:", permErr.name, permErr.message);
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream.getTracks().forEach((t) => t.stop());
+            console.log("[Permissions] Video-only permission granted");
+          } catch (e) {
+            console.warn("[Permissions] Video-only also failed:", e.message);
+          }
+        }
+
         // Connect with a 15s timeout so it never hangs
         await Promise.race([
           newRoom.connect(livekitUrl, data.token),
@@ -185,24 +216,18 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           return;
         }
 
-        // Request camera + mic together so Chrome shows a single combined
-        // permission prompt. Fall back to individual requests if both fail.
+        // Enable camera and mic via LiveKit — permissions already granted above
         try {
-          await newRoom.localParticipant.enableCameraAndMicrophone();
-        } catch (err) {
-          console.warn("Combined camera+mic failed, trying individually:", err.message);
-          try {
-            await newRoom.localParticipant.setCameraEnabled(true);
-          } catch (camErr) {
-            console.warn("Camera not available:", camErr.message);
-            setCamEnabled(false);
-          }
-          try {
-            await newRoom.localParticipant.setMicrophoneEnabled(true);
-          } catch (micErr) {
-            console.warn("Microphone not available:", micErr.message);
-            setMicEnabled(false);
-          }
+          await newRoom.localParticipant.setCameraEnabled(true);
+        } catch (camErr) {
+          console.warn("Camera not available:", camErr.message);
+          setCamEnabled(false);
+        }
+        try {
+          await newRoom.localParticipant.setMicrophoneEnabled(true);
+        } catch (micErr) {
+          console.warn("Microphone not available:", micErr.message);
+          setMicEnabled(false);
         }
 
         // Try to attach local video now (may succeed if ref is ready)
