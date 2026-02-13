@@ -32,16 +32,17 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
-  // Speech recognition lifecycle
+  // Speech recognition lifecycle — uses the Web Speech API which has its own
+  // mic access, independent of LiveKit's audio track. Only gate on `connected`
+  // (not micEnabled) so a LiveKit mic failure doesn't block transcription.
   useEffect(() => {
     console.log("[STT] Effect fired:", {
       connected,
-      micEnabled,
       hasOnTranscript: !!onTranscriptRef.current,
       speechSupported: !!speechSupported,
     });
 
-    if (!connected || !micEnabled || !onTranscriptRef.current || !speechSupported) {
+    if (!connected || !onTranscriptRef.current || !speechSupported) {
       console.log("[STT] Skipping — prerequisites not met");
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
@@ -106,7 +107,7 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       recognitionRef.current = null;
       setTranscribing(false);
     };
-  }, [connected, micEnabled, speechSupported]);
+  }, [connected, speechSupported]);
 
   // Connect to LiveKit room
   useEffect(() => {
