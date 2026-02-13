@@ -14,18 +14,22 @@ const Home = () => {
   };
 
   return (
-    <div className="w-full h-full flex justify-center items-center p-4 bg-gray-300">
-      <div className="w-full sm:w-1/2 xl:w-1/3">
-        <div className="border-teal p-8 border-t-12 bg-white mb-6 rounded-lg shadow-lg bg-white">
-          <h2 className="text-2xl font-bold text-center mb-2 text-grey-darker">
-            Welcome to Logos
-          </h2>
-          <p className="text-center text-gray-500 mb-6 text-sm">
+    <div className="main flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
+      <div style={{ width: '100%', maxWidth: 400, padding: '0 20px' }}>
+        <div className="login-card" style={{ padding: 40 }}>
+          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text-primary)', margin: 0 }}>
+              LOGOS
+            </h1>
+          </div>
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32, marginTop: 6 }}>
             The competitive debate platform
           </p>
+          <div style={{ height: 1, background: 'var(--border-default)', marginBottom: 28 }} />
           <button
             onClick={handleGoogleLogin}
-            className="bg-indigo-700 hover:bg-indigo-600 text-white py-2 px-4 rounded w-full text-center transition duration-150 cursor-pointer"
+            className="btn btn-primary btn-md"
+            style={{ width: '100%', fontSize: 15 }}
           >
             Sign in with Google
           </button>

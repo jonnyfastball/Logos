@@ -141,6 +141,14 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           setConnected(false);
         });
 
+        // Attach local camera whenever it's published (handles timing
+        // where the <video> element doesn't exist yet during connect)
+        newRoom.on(RoomEvent.LocalTrackPublished, (publication) => {
+          if (publication.source === Track.Source.Camera && localVideoRef.current) {
+            publication.track.attach(localVideoRef.current);
+          }
+        });
+
         const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
         await newRoom.connect(livekitUrl, data.token);
 
@@ -152,7 +160,7 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
         // Enable camera and mic
         await newRoom.localParticipant.enableCameraAndMicrophone();
 
-        // Attach local video
+        // Try to attach local video now (may succeed if ref is ready)
         const localVideoTrack = newRoom.localParticipant.getTrackPublication(
           Track.Source.Camera
         );
@@ -199,6 +207,22 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     };
   }, [debateId, userId]);
 
+  // Safety: re-attach tracks if video elements change
+  useEffect(() => {
+    if (!room || !connected) return;
+    const localPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+    if (localPub?.track && localVideoRef.current) {
+      localPub.track.attach(localVideoRef.current);
+    }
+    room.remoteParticipants.forEach((participant) => {
+      participant.trackPublications.forEach((pub) => {
+        if (pub.track && pub.track.kind === Track.Kind.Video && remoteVideoRef.current) {
+          pub.track.attach(remoteVideoRef.current);
+        }
+      });
+    });
+  }, [room, connected]);
+
   const toggleMic = useCallback(async () => {
     if (!room) return;
     await room.localParticipant.setMicrophoneEnabled(!micEnabled);
@@ -213,82 +237,64 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
 
   if (error) {
     return (
-      <div className="bg-gray-900 border-b border-gray-700 p-4 text-center">
-        <p className="text-red-400 text-sm">Video error: {error}</p>
+      <div style={{ background: 'var(--bg-secondary)', padding: 16, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#fca5a5', fontSize: 13 }}>Video error: {error}</p>
       </div>
     );
   }
 
   if (connecting) {
     return (
-      <div className="bg-gray-900 border-b border-gray-700 p-8 text-center">
-        <div className="inline-block w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-        <p className="text-gray-400 text-sm">Connecting to video...</p>
+      <div style={{ background: 'var(--bg-secondary)', padding: 32, textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="spinner spinner-blue spinner-md" style={{ marginBottom: 10 }}></div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Connecting to video...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-black border-b border-gray-700 relative overflow-hidden" style={{ height: "40vh" }}>
-      {/* Remote video (main area) */}
-      <div className="w-full h-full flex items-center justify-center">
+    <>
+      {/* Remote video panel */}
+      <div className="video-panel video-panel--remote">
+        <span className="video-panel__label">Opponent</span>
         {remoteConnected ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
+          <video ref={remoteVideoRef} autoPlay playsInline />
         ) : (
-          <div className="text-gray-500 text-center">
-            <p className="text-lg mb-1">Waiting for opponent...</p>
-            <p className="text-sm">Their video will appear here</p>
+          <div className="video-panel__waiting">
+            <p>Waiting for opponent...</p>
+            <p>Their video will appear here</p>
           </div>
         )}
       </div>
 
-      {/* Local video (PiP, bottom-right) */}
-      <div className="absolute bottom-12 right-3 w-32 h-24 bg-gray-800 rounded overflow-hidden border border-gray-600 shadow-lg">
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover mirror"
-          style={{ transform: "scaleX(-1)" }}
-        />
+      {/* Local video panel */}
+      <div className="video-panel video-panel--local">
+        <span className="video-panel__label">You</span>
+        <video ref={localVideoRef} autoPlay playsInline muted />
       </div>
 
       {/* Controls bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gray-900 bg-opacity-80 p-2 flex items-center justify-center space-x-3">
+      <div className="video-controls-bar">
         <button
           onClick={toggleMic}
-          className={`py-1 px-4 rounded text-sm transition duration-150 ${
-            micEnabled
-              ? "bg-gray-700 hover:bg-gray-600 text-white"
-              : "bg-red-700 hover:bg-red-600 text-white"
-          }`}
+          className={`btn btn-sm ${micEnabled ? 'btn-secondary' : 'btn-danger'}`}
         >
           {micEnabled ? "Mute" : "Unmute"}
         </button>
         <button
           onClick={toggleCam}
-          className={`py-1 px-4 rounded text-sm transition duration-150 ${
-            camEnabled
-              ? "bg-gray-700 hover:bg-gray-600 text-white"
-              : "bg-red-700 hover:bg-red-600 text-white"
-          }`}
+          className={`btn btn-sm ${camEnabled ? 'btn-secondary' : 'btn-danger'}`}
         >
           {camEnabled ? "Cam Off" : "Cam On"}
         </button>
         {onTranscript && (
           transcribing ? (
-            <span className="text-green-400 text-xs ml-2">Transcribing...</span>
+            <span className="badge badge-green" style={{ marginLeft: 4 }}>Transcribing</span>
           ) : !speechSupported ? (
-            <span className="text-yellow-400 text-xs ml-2">Transcription unavailable</span>
+            <span className="badge badge-yellow" style={{ marginLeft: 4 }}>No transcription</span>
           ) : null
         )}
       </div>
-    </div>
+    </>
   );
 }

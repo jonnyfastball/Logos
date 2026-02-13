@@ -330,13 +330,10 @@ export default function DebateRoom() {
 
   if (error) {
     return (
-      <div className="main flex items-center justify-center h-screen w-screen bg-gray-900 text-gray-100">
-        <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
-          <button
-            onClick={() => router.push("/lobby")}
-            className="bg-blue-600 hover:bg-blue-500 text-white py-2 px-6 rounded transition duration-150"
-          >
+      <div className="main flex items-center justify-center h-screen w-screen page-bg">
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: '#fca5a5', marginBottom: 16, fontSize: 15 }}>{error}</p>
+          <button onClick={() => router.push("/lobby")} className="btn btn-primary btn-md">
             Back to Lobby
           </button>
         </div>
@@ -346,8 +343,8 @@ export default function DebateRoom() {
 
   if (!debate) {
     return (
-      <div className="main flex items-center justify-center h-screen w-screen bg-gray-900 text-gray-100">
-        <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="main flex items-center justify-center h-screen w-screen page-bg">
+        <div className="spinner spinner-blue spinner-lg"></div>
       </div>
     );
   }
@@ -355,225 +352,148 @@ export default function DebateRoom() {
   const isAiDebate = debate.is_ai_opponent;
   const isVideoActive = debate.is_video && !isAiDebate && debate.status === "active" && !result;
 
-  return (
-    <div className="main flex flex-col h-screen w-screen bg-gray-800 text-gray-100">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-700 p-3 flex items-start justify-between">
-        <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-            Debate Topic
-            {isAiDebate && (
-              <span className="ml-2 text-purple-400">(Practice)</span>
-            )}
-            {debate.is_video && !isAiDebate && (
-              <span className="ml-2 text-blue-400">(Video)</span>
-            )}
-          </div>
-          <h2 className="text-lg font-semibold">{debate.topic}</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            {myRating && (
-              <span className="text-gray-300">
-                You ({Math.round(myRating.rating)})
+  // Shared pieces
+  const resultBanner = result && (
+    <div
+      className={`animate-fade-in ${
+        result.outcome === "win"
+          ? "result-win"
+          : result.outcome === "loss"
+          ? "result-loss"
+          : "result-draw"
+      }`}
+      style={{ padding: '16px 20px', textAlign: 'center', flexShrink: 0 }}
+    >
+      <p style={{ fontWeight: 700, fontSize: 18, margin: 0, color: result.outcome === 'win' ? '#86efac' : result.outcome === 'loss' ? '#fca5a5' : '#fcd34d' }}>
+        {result.outcome === "win" && "You won!"}
+        {result.outcome === "loss" && "You lost."}
+        {result.outcome === "draw" && "It's a draw."}
+        {result.is_practice && (
+          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, opacity: 0.7 }}>
+            (Practice — no rating change)
+          </span>
+        )}
+        {!result.is_practice &&
+          result.ratings &&
+          result.ratings[user.id] && (
+            <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 500 }}>
+              {result.ratings[user.id].oldRating} → {result.ratings[user.id].newRating}{" "}
+              <span style={{ color: result.ratings[user.id].change >= 0 ? '#86efac' : '#fca5a5' }}>
+                ({result.ratings[user.id].change >= 0 ? "+" : ""}
+                {result.ratings[user.id].change})
               </span>
-            )}
-            {isAiDebate ? (
-              <>
-                {" vs "}
-                <span className="text-purple-400 font-medium">
-                  AI Opponent
-                </span>
-              </>
-            ) : (
-              opponent && (
-                <>
-                  {" vs "}
-                  <span className="text-blue-400 font-medium">
-                    {opponent.username} ({Math.round(opponent.rating)})
-                  </span>
-                </>
+            </span>
+          )}
+      </p>
+      {result.ai_judgment && (
+        <div style={{ marginTop: 10, fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)' }}>
+          <span style={{ color: '#c4b5fd', fontWeight: 600 }}>AI Judge: </span>
+          {result.ai_judgment.reasoning}
+          {result.ai_judgment.scores && (
+            <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.7 }}>
+              (Scores:{" "}
+              {isAiDebate
+                ? `You ${result.ai_judgment.scores.user1 || "?"} vs AI ${
+                    result.ai_judgment.scores.user2 || "?"
+                  }`
+                : `${result.ai_judgment.scores.user1 || "?"} vs ${
+                    result.ai_judgment.scores.user2 || "?"
+                  }`}
               )
-            )}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          {debate.status === "active" && !voting && !endingDebate && (
-            <button
-              onClick={handleEndDebate}
-              className="bg-red-700 hover:bg-red-600 text-white py-1 px-3 rounded text-sm transition duration-150"
-            >
-              End Debate
-            </button>
-          )}
-          {endingDebate && (
-            <span className="text-purple-400 text-sm flex items-center">
-              <div className="inline-block w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mr-1"></div>
-              AI judging...
             </span>
           )}
-          <button
-            onClick={() => router.push("/lobby")}
-            className="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded text-sm transition duration-150"
-          >
-            Leave
-          </button>
         </div>
-      </div>
-
-      {/* Video Chat */}
-      {debate.is_video && !isAiDebate && debate.status === "active" && !result && (
-        <VideoChat debateId={debateId} userId={user.id} onTranscript={handleSend} />
       )}
+    </div>
+  );
 
-      {/* Result Banner */}
-      {result && (
-        <div
-          className={`p-4 text-center ${
-            result.outcome === "win"
-              ? "bg-green-900 text-green-200"
-              : result.outcome === "loss"
-              ? "bg-red-900 text-red-200"
-              : "bg-yellow-900 text-yellow-200"
-          }`}
-        >
-          <p className="font-semibold">
-            {result.outcome === "win" && "You won!"}
-            {result.outcome === "loss" && "You lost."}
-            {result.outcome === "draw" && "It's a draw."}
-            {result.is_practice && (
-              <span className="ml-2 text-xs font-normal opacity-75">
-                (Practice — no rating change)
+  const messagesArea = (
+    <div
+      className={isVideoActive ? "debate-chat-col__messages" : "flex-1"}
+      style={isVideoActive ? {} : { overflowY: 'auto', padding: '16px 20px' }}
+    >
+      {messages.map((msg) => {
+        const isOwn = msg.user_id === user.id;
+        const isAi = isAiDebate && !isOwn;
+        return (
+          <div key={msg.id} className="message-row">
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ fontWeight: 600, fontSize: 13, color: isAi ? '#c4b5fd' : '#79b8ff' }}>
+                {msg.author?.username || "Unknown"}
               </span>
-            )}
-            {!result.is_practice &&
-              result.ratings &&
-              result.ratings[user.id] && (
-                <span className="ml-2 text-sm font-normal">
-                  Rating: {result.ratings[user.id].oldRating} →{" "}
-                  {result.ratings[user.id].newRating} (
-                  <span
-                    className={
-                      result.ratings[user.id].change >= 0
-                        ? "text-green-300"
-                        : "text-red-300"
-                    }
-                  >
-                    {result.ratings[user.id].change >= 0 ? "+" : ""}
-                    {result.ratings[user.id].change}
-                  </span>
-                  )
-                </span>
-              )}
-          </p>
-          {result.ai_judgment && (
-            <div className="mt-2 text-sm font-normal">
-              <span className="text-purple-300 font-medium">AI Judge: </span>
-              {result.ai_judgment.reasoning}
-              {result.ai_judgment.scores && (
-                <span className="ml-2 text-xs opacity-75">
-                  (Scores:{" "}
-                  {isAiDebate
-                    ? `You ${result.ai_judgment.scores.user1 || "?"} vs AI ${
-                        result.ai_judgment.scores.user2 || "?"
-                      }`
-                    : `${result.ai_judgment.scores.user1 || "?"} vs ${
-                        result.ai_judgment.scores.user2 || "?"
-                      }`}
-                  )
-                </span>
-              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Messages */}
-      <div className={`overflow-y-auto p-4 ${isVideoActive ? "" : "flex-1"}`}
-        style={isVideoActive ? { maxHeight: "50%" } : {}}
-      >
-        {messages.map((msg) => (
-          <div key={msg.id} className="mb-3">
-            <span
-              className={`font-bold text-sm ${
-                isAiDebate && msg.user_id !== user.id
-                  ? "text-purple-400"
-                  : "text-blue-400"
-              }`}
-            >
-              {msg.author?.username || "Unknown"}
-            </span>
-            <p className="text-white">{msg.message}</p>
+            <div className={`message-bubble ${isOwn ? 'message-own' : isAi ? 'message-ai' : ''}`}>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--text-primary)' }}>
+                {msg.message}
+              </p>
+            </div>
             {checkingMsgId === msg.id && (
-              <div className="mt-1 flex items-center text-xs text-purple-400">
-                <div className="inline-block w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mr-1"></div>
-                Fact-checking...
+              <div className="flex items-center" style={{ marginTop: 6, gap: 6 }}>
+                <div className="spinner spinner-purple spinner-sm"></div>
+                <span style={{ fontSize: 12, color: '#c4b5fd' }}>Fact-checking...</span>
               </div>
             )}
             {factChecks[msg.id] && (
-              <div className="mt-1 ml-2 p-2 bg-purple-900 bg-opacity-50 border-l-2 border-purple-400 rounded text-sm text-purple-200">
-                <span className="font-semibold text-purple-300">
-                  AI Fact-Check:{" "}
-                </span>
+              <div className="fact-check-box">
+                <span style={{ fontWeight: 600, color: '#a78bfa' }}>AI Fact-Check: </span>
                 {factChecks[msg.id]}
               </div>
             )}
           </div>
-        ))}
-        {aiTyping && (
-          <div className="mb-3">
-            <span className="font-bold text-purple-400 text-sm">
-              AI Opponent
-            </span>
-            <div className="flex items-center mt-1 text-gray-400">
-              <div className="inline-block w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-              Thinking...
-            </div>
+        );
+      })}
+      {aiTyping && (
+        <div className="message-row">
+          <div style={{ marginBottom: 4 }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#c4b5fd' }}>AI Opponent</span>
           </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          <div className="flex items-center" style={{ gap: 8, color: 'var(--text-secondary)', fontSize: 14 }}>
+            <div className="spinner spinner-purple spinner-sm"></div>
+            Thinking...
+          </div>
+        </div>
+      )}
+      <div ref={messagesEndRef} />
+    </div>
+  );
 
-      {/* Footer: Input / Voting / Judging / Completed */}
+  const footerStyle = isVideoActive ? {} : { padding: '10px 20px', borderTop: '1px solid var(--border-default)', background: 'var(--bg-secondary)' };
+  const footerClass = isVideoActive ? "debate-chat-col__footer" : "";
+
+  const footer = (
+    <>
       {!voting && !result && !endingDebate && (
-        <div className="p-2 border-t border-gray-700">
+        <div className={footerClass} style={footerStyle}>
           <MessageInput onSubmit={handleSend} />
         </div>
       )}
 
       {endingDebate && (
-        <div className="p-4 border-t border-gray-700 text-center">
-          <div className="flex items-center justify-center text-purple-400">
-            <div className="inline-block w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-            AI Judge is evaluating the debate...
+        <div className={footerClass} style={{ ...footerStyle, textAlign: 'center' }}>
+          <div className="flex items-center justify-center" style={{ gap: 8, color: '#c4b5fd' }}>
+            <div className="spinner spinner-purple spinner-sm"></div>
+            <span style={{ fontSize: 14 }}>AI Judge is evaluating the debate...</span>
           </div>
         </div>
       )}
 
       {voting && !result && (
-        <div className="p-4 border-t border-gray-700">
+        <div className={footerClass} style={{ ...footerStyle, padding: isVideoActive ? undefined : '18px 20px' }}>
           {myVote ? (
-            <p className="text-center text-gray-400">
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>
               Vote submitted. Waiting for opponent...
             </p>
           ) : (
-            <div className="text-center">
-              <p className="mb-3 font-semibold">Who won this debate?</p>
-              <div className="flex justify-center space-x-3">
-                <button
-                  onClick={() => handleVote("self")}
-                  className="bg-green-700 hover:bg-green-600 text-white py-2 px-5 rounded transition duration-150"
-                >
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ marginBottom: 14, fontWeight: 600, fontSize: 15 }}>Who won this debate?</p>
+              <div className="flex justify-center" style={{ gap: 10 }}>
+                <button onClick={() => handleVote("self")} className="btn btn-success btn-md">
                   I won
                 </button>
-                <button
-                  onClick={() => handleVote("opponent")}
-                  className="bg-red-700 hover:bg-red-600 text-white py-2 px-5 rounded transition duration-150"
-                >
+                <button onClick={() => handleVote("opponent")} className="btn btn-danger btn-md">
                   Opponent won
                 </button>
-                <button
-                  onClick={() => handleVote("draw")}
-                  className="bg-gray-600 hover:bg-gray-500 text-white py-2 px-5 rounded transition duration-150"
-                >
+                <button onClick={() => handleVote("draw")} className="btn btn-secondary btn-md">
                   Draw
                 </button>
               </div>
@@ -583,15 +503,92 @@ export default function DebateRoom() {
       )}
 
       {result && (
-        <div className="p-4 border-t border-gray-700 text-center">
-          <button
-            onClick={() => router.push("/lobby")}
-            className="bg-blue-600 hover:bg-blue-500 text-white py-2 px-6 rounded transition duration-150"
-          >
+        <div className={footerClass} style={{ ...footerStyle, textAlign: 'center' }}>
+          <button onClick={() => router.push("/lobby")} className="btn btn-primary btn-md">
             Back to Lobby
           </button>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div className="main flex flex-col h-screen w-screen page-bg">
+      {/* Header */}
+      <div className="header-bar" style={{ alignItems: 'flex-start', padding: '14px 20px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-tertiary)' }}>
+              Debate Topic
+            </span>
+            {isAiDebate && <span className="badge badge-purple">Practice</span>}
+            {debate.is_video && !isAiDebate && <span className="badge badge-blue">Video</span>}
+          </div>
+          <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4, color: 'var(--text-primary)' }}>
+            {debate.topic}
+          </h2>
+          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+            {myRating && (
+              <span style={{ color: 'var(--text-primary)' }}>
+                You ({Math.round(myRating.rating)})
+              </span>
+            )}
+            {isAiDebate ? (
+              <>
+                {" vs "}
+                <span style={{ color: '#c4b5fd', fontWeight: 500 }}>AI Opponent</span>
+              </>
+            ) : (
+              opponent && (
+                <>
+                  {" vs "}
+                  <span style={{ color: '#79b8ff', fontWeight: 500 }}>
+                    {opponent.username} ({Math.round(opponent.rating)})
+                  </span>
+                </>
+              )
+            )}
+          </div>
+        </div>
+        <div className="flex items-center" style={{ gap: 8, flexShrink: 0, marginLeft: 16 }}>
+          {debate.status === "active" && !voting && !endingDebate && (
+            <button onClick={handleEndDebate} className="btn btn-danger btn-sm">
+              End Debate
+            </button>
+          )}
+          {endingDebate && (
+            <span className="flex items-center" style={{ color: '#c4b5fd', fontSize: 13 }}>
+              <div className="spinner spinner-purple spinner-sm" style={{ marginRight: 6 }}></div>
+              AI judging...
+            </span>
+          )}
+          <button onClick={() => router.push("/lobby")} className="btn btn-ghost btn-sm">
+            Leave
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className={`debate-body ${isVideoActive ? 'debate-body--video-active' : ''}`}>
+
+        {/* Left column: Video (only when active) */}
+        {isVideoActive && (
+          <div className="debate-video-col">
+            <VideoChat debateId={debateId} userId={user.id} onTranscript={handleSend} />
+          </div>
+        )}
+
+        {/* Right column (or full-width when no video): Chat */}
+        <div
+          className={isVideoActive ? 'debate-chat-col' : ''}
+          style={isVideoActive ? {} : { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        >
+          {resultBanner}
+          {messagesArea}
+          {footer}
+        </div>
+
+      </div>
     </div>
   );
 }

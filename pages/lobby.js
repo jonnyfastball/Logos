@@ -207,123 +207,127 @@ export default function Lobby() {
   if (!user) return null;
 
   return (
-    <div className="main flex flex-col h-screen w-screen bg-gray-900 text-gray-100">
-      <header className="flex items-center justify-between p-4 border-b border-gray-700">
-        <h1 className="text-2xl font-bold">Logos</h1>
-        <div className="flex items-center space-x-4">
-          <span className="text-sm text-gray-400">{user.email}</span>
-          <button
-            onClick={signOut}
-            className="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded text-sm transition duration-150"
-          >
+    <div className="main flex flex-col h-screen w-screen page-bg">
+      {/* Header */}
+      <header className="header-bar">
+        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', margin: 0 }}>LOGOS</h1>
+        <div className="flex items-center" style={{ gap: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{user.email}</span>
+          <button onClick={signOut} className="btn btn-ghost btn-sm">
             Log out
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center" style={{ padding: '32px 20px', overflow: 'auto' }}>
+
+        {/* Rating Card */}
         {myRating && (
-          <div className="mb-6 text-center">
-            <span className="text-5xl font-bold">{Math.round(myRating.rating)}</span>
+          <div className="rating-card" style={{ marginBottom: 32, minWidth: 220 }}>
+            <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1, color: 'var(--text-primary)' }}>
+              {Math.round(myRating.rating)}
+            </div>
             {myRating.rating_deviation > 200 && (
-              <span className="ml-2 text-sm text-gray-400">Provisional</span>
+              <span className="badge badge-yellow" style={{ marginTop: 8, display: 'inline-flex' }}>
+                Provisional
+              </span>
             )}
-            <p className="text-gray-400 text-sm mt-1">
-              {myRating.total_debates} debates — {myRating.wins}W / {myRating.losses}L
-            </p>
+            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
+              {myRating.total_debates} debate{myRating.total_debates !== 1 ? 's' : ''}
+              <span style={{ margin: '0 8px', color: 'var(--border-default)' }}>&middot;</span>
+              <span style={{ color: '#86efac' }}>{myRating.wins}W</span>
+              {' / '}
+              <span style={{ color: '#fca5a5' }}>{myRating.losses}L</span>
+            </div>
           </div>
         )}
 
-        <h2 className="text-4xl font-bold mb-2">Ready to Debate?</h2>
-        <p className="text-gray-400 mb-8">
+        <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.5px' }}>
+          Ready to Debate?
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 32, fontSize: 15 }}>
           Challenge someone to a battle of ideas
         </p>
 
+        {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-900 text-red-200 rounded">
-            {error}
+          <div className="card animate-fade-in" style={{ padding: '12px 18px', marginBottom: 20, background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.25)' }}>
+            <span style={{ color: '#fca5a5', fontSize: 14 }}>{error}</span>
           </div>
         )}
 
+        {/* Starting AI Debate */}
         {startingAi && (
-          <div className="text-center mb-8">
-            <div className="mb-4">
-              <div className="inline-block w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="card animate-fade-in" style={{ padding: '32px 40px', marginBottom: 32, textAlign: 'center' }}>
+            <div style={{ marginBottom: 16 }}>
+              <div className="spinner spinner-purple spinner-lg"></div>
             </div>
-            <p className="text-lg mb-2">Setting up AI debate...</p>
-            <p className="text-gray-400 text-sm">
-              Generating opening argument
-            </p>
+            <p style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>Setting up AI debate...</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Generating opening argument</p>
           </div>
         )}
 
+        {/* Searching for Opponent */}
         {!startingAi && searching && !inviteLink && (
-          <div className="text-center mb-8">
-            <div className="mb-4">
-              <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="card animate-fade-in" style={{ padding: '32px 40px', marginBottom: 32, textAlign: 'center' }}>
+            <div style={{ marginBottom: 16 }}>
+              <div className="spinner spinner-blue spinner-lg"></div>
             </div>
-            <p className="text-lg mb-2">Finding an opponent...</p>
-            <p className="text-gray-400 text-sm mb-4">
+            <p style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>Finding an opponent...</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 20 }}>
               Waiting for someone to join
             </p>
             {showAiFallback && (
-              <button
-                onClick={handleDebateAI}
-                className="bg-purple-600 hover:bg-purple-500 text-white py-2 px-6 rounded transition duration-150 mb-3"
-              >
-                Debate AI Instead
-              </button>
+              <div style={{ marginBottom: 12 }}>
+                <button onClick={handleDebateAI} className="btn btn-purple btn-md">
+                  Debate AI Instead
+                </button>
+              </div>
             )}
-            <div>
-              <button
-                onClick={handleCancelSearch}
-                className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-6 rounded transition duration-150"
-              >
-                Cancel
-              </button>
-            </div>
+            <button onClick={handleCancelSearch} className="btn btn-secondary btn-sm">
+              Cancel
+            </button>
           </div>
         )}
 
+        {/* Invite Link */}
         {inviteLink && (
-          <div className="text-center mb-8 max-w-md">
-            <p className="text-lg mb-3">Share this link with your opponent:</p>
-            <div className="flex items-center bg-gray-800 rounded p-2 mb-3">
+          <div className="card animate-fade-in" style={{ padding: '28px 32px', marginBottom: 32, textAlign: 'center', maxWidth: 440, width: '100%' }}>
+            <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Share this link with your opponent</p>
+            <div className="invite-box" style={{ marginBottom: 14 }}>
               <input
                 type="text"
                 readOnly
                 value={inviteLink}
-                className="flex-1 bg-transparent text-gray-200 text-sm outline-none mr-2"
+                className="input-dark"
+                style={{ border: 'none', padding: '6px 0', background: 'transparent', flex: 1, fontSize: 13, marginRight: 10 }}
               />
-              <button
-                onClick={copyInviteLink}
-                className="bg-blue-600 hover:bg-blue-500 text-white py-1 px-3 rounded text-sm transition duration-150"
-              >
+              <button onClick={copyInviteLink} className="btn btn-primary btn-sm">
                 Copy
               </button>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
+            <p style={{ color: 'var(--text-tertiary)', fontSize: 13, marginBottom: 16 }}>
               Waiting for opponent to join...
             </p>
             <button
-              onClick={() => {
-                handleCancelSearch();
-                setInviteLink(null);
-              }}
-              className="bg-gray-700 hover:bg-gray-600 text-white py-2 px-6 rounded transition duration-150"
+              onClick={() => { handleCancelSearch(); setInviteLink(null); }}
+              className="btn btn-secondary btn-sm"
             >
               Cancel
             </button>
           </div>
         )}
 
+        {/* Controls */}
         {!searching && !startingAi && !inviteLink && (
           <>
-            <div className="mb-6 flex items-center space-x-4">
+            {/* Topic + Mode Row */}
+            <div className="flex items-center" style={{ gap: 14, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'center' }}>
               <select
                 value={selectedTopic}
                 onChange={(e) => setSelectedTopic(e.target.value)}
-                className="bg-gray-800 text-gray-100 border border-gray-600 rounded py-2 px-4 text-sm cursor-pointer outline-none"
+                className="select-dark"
               >
                 <option value="random">Random Topic</option>
                 {TOPICS.map((topic) => (
@@ -333,47 +337,31 @@ export default function Lobby() {
                 ))}
               </select>
 
-              <div className="flex bg-gray-800 rounded border border-gray-600 overflow-hidden">
+              <div className="toggle-group">
                 <button
                   onClick={() => setMode("text")}
-                  className={`py-2 px-4 text-sm transition duration-150 ${
-                    mode === "text"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-400 hover:text-gray-200"
-                  }`}
+                  className={`toggle-btn ${mode === "text" ? "active" : ""}`}
                 >
                   Text
                 </button>
                 <button
                   onClick={() => setMode("video")}
-                  className={`py-2 px-4 text-sm transition duration-150 ${
-                    mode === "video"
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-400 hover:text-gray-200"
-                  }`}
+                  className={`toggle-btn ${mode === "video" ? "active" : ""}`}
                 >
                   Video
                 </button>
               </div>
             </div>
 
-            <div className="flex space-x-4 mb-8">
-              <button
-                onClick={handleDebateNow}
-                className="bg-blue-600 hover:bg-blue-500 text-white py-3 px-8 rounded-lg text-lg font-semibold transition duration-150"
-              >
+            {/* Action Buttons */}
+            <div className="flex items-center" style={{ gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button onClick={handleDebateNow} className="btn btn-primary btn-lg">
                 Debate Now
               </button>
-              <button
-                onClick={handleInvite}
-                className="bg-gray-700 hover:bg-gray-600 text-white py-3 px-8 rounded-lg text-lg font-semibold transition duration-150"
-              >
+              <button onClick={handleInvite} className="btn btn-secondary btn-lg">
                 Invite to Debate
               </button>
-              <button
-                onClick={handleDebateAI}
-                className="bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-lg text-lg font-semibold transition duration-150"
-              >
+              <button onClick={handleDebateAI} className="btn btn-purple btn-lg">
                 Debate AI
               </button>
             </div>
