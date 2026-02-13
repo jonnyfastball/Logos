@@ -32,40 +32,36 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
-  // Speech recognition lifecycle — uses the Web Speech API which has its own
-  // mic access, independent of LiveKit's audio track. Only gate on `connected`
-  // (not micEnabled) so a LiveKit mic failure doesn't block transcription.
+  // Clean up speech recognition when disconnecting
   useEffect(() => {
-    console.log("[STT] Effect fired:", {
-      connected,
-      hasOnTranscript: !!onTranscriptRef.current,
-      speechSupported: !!speechSupported,
-    });
-
-    if (!connected || !onTranscriptRef.current || !speechSupported) {
-      console.log("[STT] Skipping — prerequisites not met");
-      if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.abort();
-        recognitionRef.current = null;
-        setTranscribing(false);
-      }
-      return;
+    if (!connected && recognitionRef.current) {
+      console.log("[STT] Disconnected — stopping recognition");
+      recognitionRef.current.onend = null;
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+      setTranscribing(false);
     }
+  }, [connected]);
+
+  // Start transcription — must be called from a user gesture (click) so
+  // Chrome will show the mic permission prompt instead of auto-denying.
+  const startTranscription = useCallback(() => {
+    if (recognitionRef.current || !speechSupported) return;
 
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
-    console.log("[STT] Created SpeechRecognition instance");
+    console.log("[STT] Starting from user gesture");
+
+    let fatal = false;
 
     recognition.onresult = (event) => {
-      console.log("[STT] onresult fired, resultIndex:", event.resultIndex, "results:", event.results.length);
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const text = event.results[i][0].transcript.trim();
-          console.log("[STT] Final transcript:", text);
+          console.log("[STT] Transcript:", text);
           if (text && onTranscriptRef.current) onTranscriptRef.current(text);
         }
       }
@@ -75,21 +71,19 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       console.log("[STT] Recognition started successfully");
     };
 
-    let fatal = false;
-
     recognition.onerror = (event) => {
-      console.error("[STT] Error:", event.error, event.message);
+      console.error("[STT] Error:", event.error);
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         fatal = true;
         recognition.onend = null;
+        recognitionRef.current = null;
         setTranscribing(false);
-        console.warn("[STT] Fatal error — mic permission denied, stopping");
       }
     };
 
     recognition.onend = () => {
       if (fatal) return;
-      console.log("[STT] Recognition ended, auto-restarting...");
+      console.log("[STT] Auto-restarting...");
       try {
         recognition.start();
       } catch (e) {
@@ -101,19 +95,20 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
       recognition.start();
       recognitionRef.current = recognition;
       setTranscribing(true);
-      console.log("[STT] Called recognition.start()");
     } catch (e) {
       console.error("[STT] Failed to start:", e);
     }
+  }, [speechSupported]);
 
-    return () => {
-      console.log("[STT] Cleanup — aborting recognition");
-      recognition.onend = null;
-      recognition.abort();
+  const stopTranscription = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.abort();
       recognitionRef.current = null;
       setTranscribing(false);
-    };
-  }, [connected, speechSupported]);
+      console.log("[STT] Stopped by user");
+    }
+  }, []);
 
   // Connect to LiveKit room
   useEffect(() => {
@@ -340,12 +335,16 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
         >
           {camEnabled ? "Cam Off" : "Cam On"}
         </button>
-        {onTranscript && (
-          transcribing ? (
-            <span className="badge badge-green" style={{ marginLeft: 4 }}>Transcribing</span>
-          ) : !speechSupported ? (
-            <span className="badge badge-yellow" style={{ marginLeft: 4 }}>No transcription</span>
-          ) : null
+        {onTranscript && speechSupported && (
+          <button
+            onClick={transcribing ? stopTranscription : startTranscription}
+            className={`btn btn-sm ${transcribing ? 'btn-success' : 'btn-secondary'}`}
+          >
+            {transcribing ? "Stop Transcribing" : "Start Transcribing"}
+          </button>
+        )}
+        {onTranscript && !speechSupported && (
+          <span className="badge badge-yellow" style={{ marginLeft: 4 }}>No transcription</span>
         )}
       </div>
     </>
