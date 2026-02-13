@@ -92,6 +92,11 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
 
     async function connect() {
       try {
+        const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+        if (!livekitUrl) {
+          throw new Error("LiveKit URL not configured");
+        }
+
         const res = await fetch("/api/livekit-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,8 +154,13 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
           }
         });
 
-        const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
-        await newRoom.connect(livekitUrl, data.token);
+        // Connect with a 15s timeout so it never hangs
+        await Promise.race([
+          newRoom.connect(livekitUrl, data.token),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Connection timed out")), 15000)
+          ),
+        ]);
 
         if (cancelled) {
           newRoom.disconnect();
