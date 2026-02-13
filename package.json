@@ -1,5 +1,5 @@
 {
-  "name": "supabase-slack-clone-basic",
+  "name": "logos",
   "version": "0.1.1",
   "license": "MIT",
   "scripts": {
@@ -9,8 +9,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
     "@nozbe/watermelondb": "^0.23.0",
     "@supabase/supabase-js": "^1.23.0",
+    "glicko2": "^1.2.1",
+    "livekit-client": "^2.17.1",
+    "livekit-server-sdk": "^2.15.0",
     "next": "latest",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",

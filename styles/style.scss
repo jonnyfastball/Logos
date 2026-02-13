@@ -26,3 +26,15 @@ body,
   display: flex;
   flex-direction: column-reverse;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}

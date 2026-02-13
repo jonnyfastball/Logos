@@ -1,5 +1,5 @@
 --
--- For use with https://github.com/supabase/supabase/tree/master/examples/nextjs-slack-clone
+-- Logos base schema (users, channels, messages, roles)
 --
 
 -- Custom types
