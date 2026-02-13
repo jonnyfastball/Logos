@@ -34,8 +34,15 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
 
   // Speech recognition lifecycle
   useEffect(() => {
+    console.log("[STT] Effect fired:", {
+      connected,
+      micEnabled,
+      hasOnTranscript: !!onTranscriptRef.current,
+      speechSupported: !!speechSupported,
+    });
+
     if (!connected || !micEnabled || !onTranscriptRef.current || !speechSupported) {
-      // Stop recognition when disconnected, muted, or unsupported
+      console.log("[STT] Skipping — prerequisites not met");
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
         recognitionRef.current.abort();
@@ -50,41 +57,50 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
+    console.log("[STT] Created SpeechRecognition instance");
 
     recognition.onresult = (event) => {
+      console.log("[STT] onresult fired, resultIndex:", event.resultIndex, "results:", event.results.length);
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           const text = event.results[i][0].transcript.trim();
+          console.log("[STT] Final transcript:", text);
           if (text && onTranscriptRef.current) onTranscriptRef.current(text);
         }
       }
     };
 
+    recognition.onstart = () => {
+      console.log("[STT] Recognition started successfully");
+    };
+
     recognition.onend = () => {
-      // Auto-restart — recognition stops after pauses
+      console.log("[STT] Recognition ended, auto-restarting...");
       try {
         recognition.start();
       } catch (e) {
-        // Already started, ignore
+        console.warn("[STT] Auto-restart failed:", e.message);
       }
     };
 
     recognition.onerror = (event) => {
+      console.error("[STT] Error:", event.error, event.message);
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setTranscribing(false);
       }
-      // Other errors (no-speech, network) are transient — onend will restart
     };
 
     try {
       recognition.start();
       recognitionRef.current = recognition;
       setTranscribing(true);
+      console.log("[STT] Called recognition.start()");
     } catch (e) {
-      console.error("Speech recognition failed to start:", e);
+      console.error("[STT] Failed to start:", e);
     }
 
     return () => {
+      console.log("[STT] Cleanup — aborting recognition");
       recognition.onend = null;
       recognition.abort();
       recognitionRef.current = null;
