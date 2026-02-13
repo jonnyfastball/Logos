@@ -228,9 +228,12 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
     };
   }, [debateId, userId]);
 
-  // Safety: re-attach tracks if video elements change
+  // Safety: re-attach tracks when video elements appear in the DOM.
+  // In React 16, async setState calls are NOT batched — setRoom, setConnected,
+  // and setConnecting each trigger separate re-renders. The <video> elements
+  // only mount once `connecting` becomes false, so we must include it as a dep.
   useEffect(() => {
-    if (!room || !connected) return;
+    if (!room || !connected || connecting) return;
     const localPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
     if (localPub?.track && localVideoRef.current) {
       localPub.track.attach(localVideoRef.current);
@@ -242,7 +245,7 @@ export default function VideoChat({ debateId, userId, onTranscript }) {
         }
       });
     });
-  }, [room, connected]);
+  }, [room, connected, connecting]);
 
   const toggleMic = useCallback(async () => {
     if (!room) return;
